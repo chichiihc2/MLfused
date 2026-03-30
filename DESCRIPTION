@@ -1,0 +1,33 @@
+Package: MLfused
+Title: Multinomial Logistic Regression with Empirical-Likelihood Data Fusion
+Version: 0.1.0
+Authors@R: person("First", "Last", email = "email@example.com", role = c("aut", "cre"))
+Description: Fits multinomial logistic regression models that incorporate
+    external machine learning predictions via empirical-likelihood (EL)
+    constraints. Implements Newton-step optimization with analytic gradient
+    and Hessian, multiple sandwich-based standard error estimators (score-based,
+    Theorem 3, bootstrap), and an optimized vectorized solver.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends: R (>= 4.1.0)
+Imports:
+    MASS,
+    splines,
+    stats
+Suggests:
+    nnet,
+    xgboost,
+    dplyr,
+    purrr,
+    tidyr,
+    tibble,
+    readr,
+    ggplot2,
+    patchwork,
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+Config/testthat/edition: 3
