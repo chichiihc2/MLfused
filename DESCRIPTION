@@ -1,7 +1,7 @@
 Package: MLfused
 Title: Multinomial Logistic Regression with Empirical-Likelihood Data Fusion
 Version: 0.2.0
-Authors@R: person("First", "Last", email = "email@example.com", role = c("aut", "cre"))
+Authors@R: person("Chi-Shian", "Dai", email = "47463697+chichiihc@users.noreply.github.com", role = c("aut", "cre"))
 Description: Fits multinomial logistic regression models that incorporate
     external machine learning predictions via empirical-likelihood (EL)
     constraints. Implements Newton-step optimization with analytic gradient
