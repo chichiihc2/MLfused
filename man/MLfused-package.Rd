@@ -6,7 +6,7 @@
 \alias{MLfused-package}
 \title{MLfused: Multinomial Logistic Regression with Empirical-Likelihood Data Fusion}
 \description{
-Fits multinomial logistic regression models that incorporate external machine learning predictions via empirical-likelihood (EL) constraints. Implements Newton-step optimization with analytic gradient and Hessian, multiple sandwich-based standard error estimators (score-based, Theorem 3, bootstrap), and an optimized vectorized solver.
+Fits multinomial logistic regression models that incorporate external machine learning predictions via empirical-likelihood (EL) constraints. Implements Newton-step optimization with analytic gradient and Hessian, multiple sandwich-based standard error estimators (score-based, Theorem 3, bootstrap), and vectorized computation.
 }
 \author{
 \strong{Maintainer}: First Last \email{email@example.com}

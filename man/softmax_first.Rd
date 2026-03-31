@@ -8,15 +8,13 @@ softmax_first(eta_mat)
 }
 \arguments{
 \item{eta_mat}{An n x (K-1) matrix of linear predictors for classes
-2 through K.}
+2, ..., K.}
 }
 \value{
-An n x K matrix of probabilities. Column 1 corresponds to the
-baseline class.
+An n x K probability matrix. Column 1 is the baseline class.
+Rows sum to 1.
 }
 \description{
-Computes row-wise softmax probabilities with the first class as the
-baseline (its linear predictor is fixed to zero). This is the standard
-parameterization for multinomial logistic regression where class 1 is
-the reference category.
+Computes softmax probabilities with class 1 as the reference category
+(linear predictor fixed at 0).
 }

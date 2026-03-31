@@ -2,3 +2,6 @@
 ^\.Rproj\.user$
 ^\.DS_Store$
 ^\.claude/
+^\.\.Rcheck$
+^MIGRATION\.md$
+^inst/scripts$

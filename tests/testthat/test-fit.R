@@ -1,9 +1,9 @@
-test_that("ML_fused_fast converges on test data", {
+test_that("ml_fused converges on test data", {
   skip_on_cran()
 
-  fit <- ML_fused_fast(
+  fit <- ml_fused(
     par = test_par_hard, X = test_X, y = test_y,
-    qhat = test_qhat, qhat.se = test_qhat.se,
+    qhat = test_qhat,
     Hmat = test_Hmat, groups = test_groups,
     maxit = 500, tol = 1e-6,
     learning.rate = 0.1, lambda = test_lambda,
@@ -13,32 +13,60 @@ test_that("ML_fused_fast converges on test data", {
   expect_equal(fit$conv, 0)
   expect_true(all(is.finite(fit$par$beta)))
   expect_true(all(is.finite(fit$par$Theta)))
-  expect_true(is.list(fit$se.score) || is.numeric(fit$se.score))
 })
 
-test_that("ML_fused matches ML_fused_fast", {
+test_that("ml_fused produces finite sandwich SEs", {
   skip_on_cran()
 
-  fit_orig <- ML_fused(
+  fit <- ml_fused(
     par = test_par_hard, X = test_X, y = test_y,
-    qhat = test_qhat, qhat.se = test_qhat.se,
+    qhat = test_qhat,
     Hmat = test_Hmat, groups = test_groups,
     maxit = 500, tol = 1e-6,
     learning.rate = 0.1, lambda = test_lambda,
     compute_se = TRUE
   )
 
-  fit_fast <- ML_fused_fast(
+  expect_true(all(is.finite(fit$se$beta)))
+  expect_true(all(is.finite(fit$se$Theta)))
+})
+
+test_that("ml_fused with compute_se=FALSE skips inference", {
+  skip_on_cran()
+
+  fit <- ml_fused(
     par = test_par_hard, X = test_X, y = test_y,
-    qhat = test_qhat, qhat.se = test_qhat.se,
+    qhat = test_qhat,
     Hmat = test_Hmat, groups = test_groups,
-    maxit = 500, tol = 1e-6,
+    maxit = 100, tol = 1e-4,
     learning.rate = 0.1, lambda = test_lambda,
-    compute_se = TRUE
+    compute_se = FALSE
   )
 
-  # Tolerance loosened: the two solvers use different Hessian implementations
-  # and may converge to slightly different points
-  expect_equal(fit_orig$par$beta, fit_fast$par$beta, tolerance = 0.1)
-  expect_equal(fit_orig$par$Theta, fit_fast$par$Theta, tolerance = 0.1)
+  expect_null(fit$conf)
+  expect_null(fit$se)
+})
+
+test_that("tau_tmat affects optimization", {
+  skip_on_cran()
+
+  fit1 <- ml_fused(
+    par = test_par_hard, X = test_X, y = test_y,
+    qhat = test_qhat,
+    Hmat = test_Hmat, groups = test_groups,
+    maxit = 200, tol = 1e-6,
+    learning.rate = 0.1, lambda = test_lambda,
+    compute_se = FALSE, tau_tmat = 0.01
+  )
+
+  fit2 <- ml_fused(
+    par = test_par_hard, X = test_X, y = test_y,
+    qhat = test_qhat,
+    Hmat = test_Hmat, groups = test_groups,
+    maxit = 200, tol = 1e-6,
+    learning.rate = 0.1, lambda = test_lambda,
+    compute_se = FALSE, tau_tmat = 10
+  )
+
+  expect_false(isTRUE(all.equal(fit1$par$tmat, fit2$par$tmat, tolerance = 1e-3)))
 })

@@ -21,13 +21,11 @@ test_A <- group_matrix(test_groups, test_K)
 
 # Synthetic qhat for group 2 (class 3)
 test_qhat <- matrix(runif(test_n, 0.2, 0.5), ncol = 1)
-test_qhat.se <- matrix(rep(0.05, test_n), ncol = 1)
 
 # Build H basis
 test_Hmat <- build_H(test_X, phi_idx = c(1, 2), n.q = 0)
 
 # Initial parameters
 test_t0 <- matrix(0, nrow = 1, ncol = ncol(test_Hmat))
-test_par_hard <- pack.hard(test_beta, test_Theta, test_alpha, test_t0)
-# Lambda for tests
+test_par_hard <- pack_hard(test_beta, test_Theta, test_alpha, test_t0)
 test_lambda <- test_n

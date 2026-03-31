@@ -1,6 +1,6 @@
 #' @keywords internal
-#' @importFrom MASS ginv mvrnorm
+#' @importFrom MASS ginv
 #' @importFrom splines ns
-#' @importFrom stats quantile qnorm sd mad rnorm rbinom setNames var coef vcov
+#' @importFrom stats quantile qnorm sd mad setNames var complete.cases
 #' @importFrom utils tail
 "_PACKAGE"

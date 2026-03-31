@@ -1,39 +1,16 @@
-#' Create a Diagonal Matrix from a Vector
+#' Group Membership Matrix
 #'
-#' Constructs a diagonal matrix with the given values on the diagonal.
-#' Unlike \code{\link[base]{diag}}, this function always returns a matrix
-#' (even for length-1 input) by explicitly building an n x n zero matrix
-#' and setting its diagonal.
-#'
-#' @param variables A numeric vector of diagonal entries.
-#'
-#' @return A square numeric matrix of dimension \code{length(variables)} with
-#'   \code{variables} on the diagonal and zeros elsewhere.
-#'
-#' @keywords internal
-Diag <- function(variables) {
-  v <- as.numeric(variables)
-  n <- length(v)
-  out <- matrix(0, n, n)
-  diag(out) <- v
-  out
-}
-
-#' Create a Group Membership Matrix
-#'
-#' Builds a K x L binary matrix \code{A} indicating which classes (rows)
-#' belong to which groups (columns). Each class must belong to exactly one
-#' group.
+#' Creates a K x L binary partition matrix from a list of group assignments.
 #'
 #' @param groups A list of length L, where each element is an integer vector
-#'   of class indices (1-based) belonging to that group.
-#' @param K Integer. The total number of classes.
+#'   of class indices belonging to that group.
+#' @param K Integer. Total number of classes.
 #'
-#' @return A K x L binary matrix where \code{A[k, l] = 1} if class \code{k}
-#'   belongs to group \code{l}, and 0 otherwise.
+#' @return A K x L binary matrix where \code{A[k, l] = 1} if class k belongs
+#'   to group l, and 0 otherwise. Each class belongs to exactly one group.
 #'
 #' @export
-group_matrix <- function(groups, K){
+group_matrix <- function(groups, K) {
   L <- length(groups)
   A <- matrix(0, nrow = K, ncol = L)
   for (l in seq_len(L)) A[groups[[l]], l] <- 1
@@ -41,22 +18,21 @@ group_matrix <- function(groups, K){
   A
 }
 
+
 #' Baseline-Constrained Softmax
 #'
-#' Computes row-wise softmax probabilities with the first class as the
-#' baseline (its linear predictor is fixed to zero). This is the standard
-#' parameterization for multinomial logistic regression where class 1 is
-#' the reference category.
+#' Computes softmax probabilities with class 1 as the reference category
+#' (linear predictor fixed at 0).
 #'
 #' @param eta_mat An n x (K-1) matrix of linear predictors for classes
-#'   2 through K.
+#'   2, ..., K.
 #'
-#' @return An n x K matrix of probabilities. Column 1 corresponds to the
-#'   baseline class.
+#' @return An n x K probability matrix. Column 1 is the baseline class.
+#'   Rows sum to 1.
 #'
 #' @export
-softmax_first <- function(eta_mat){
-  eta_full <- cbind(0, eta_mat)                              # baseline column = 0
-  e <- exp(eta_full - apply(eta_full, 1, max))               # stabilize
+softmax_first <- function(eta_mat) {
+  eta_full <- cbind(0, eta_mat)
+  e <- exp(eta_full - apply(eta_full, 1, max))
   e / rowSums(e)
 }

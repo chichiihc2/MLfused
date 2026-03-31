@@ -2,22 +2,20 @@
 % Please edit documentation in R/utils.R
 \name{group_matrix}
 \alias{group_matrix}
-\title{Create a Group Membership Matrix}
+\title{Group Membership Matrix}
 \usage{
 group_matrix(groups, K)
 }
 \arguments{
 \item{groups}{A list of length L, where each element is an integer vector
-of class indices (1-based) belonging to that group.}
+of class indices belonging to that group.}
 
-\item{K}{Integer. The total number of classes.}
+\item{K}{Integer. Total number of classes.}
 }
 \value{
-A K x L binary matrix where \code{A[k, l] = 1} if class \code{k}
-belongs to group \code{l}, and 0 otherwise.
+A K x L binary matrix where \code{A[k, l] = 1} if class k belongs
+to group l, and 0 otherwise. Each class belongs to exactly one group.
 }
 \description{
-Builds a K x L binary matrix \code{A} indicating which classes (rows)
-belong to which groups (columns). Each class must belong to exactly one
-group.
+Creates a K x L binary partition matrix from a list of group assignments.
 }

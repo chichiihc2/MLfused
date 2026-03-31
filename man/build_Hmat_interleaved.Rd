@@ -2,24 +2,20 @@
 % Please edit documentation in R/basis.R
 \name{build_Hmat_interleaved}
 \alias{build_Hmat_interleaved}
-\title{Interleave H basis columns for multinomial grouping}
+\title{Interleave Basis Matrix for Multiple Groups}
 \usage{
 build_Hmat_interleaved(H_base, Lm1)
 }
 \arguments{
-\item{H_base}{Numeric matrix of dimension \code{n x H_per} (e.g., intercept
-plus centered covariates or spline bases).}
+\item{H_base}{An n x H matrix (single-group basis).}
 
-\item{Lm1}{Integer; the number of non-reference groups (\code{L - 1}).}
+\item{Lm1}{Integer. Number of non-reference groups (L - 1).}
 }
 \value{
-A numeric matrix of dimension \code{n x (H_per * Lm1)} with
-interleaved columns.
+An n x (H * Lm1) interleaved matrix.
 }
 \description{
-Takes an \code{n x H_per} base constraint matrix and interleaves its columns
-for \code{Lm1} non-reference groups. The output column ordering follows the
-convention used by the EL constraint: for basis index \code{k} and
-non-reference group index \code{m}, the output column is
-\code{m + (k - 1) * Lm1} (1-based).
+Replicates a single-group basis matrix into an interleaved layout
+for Lm1 non-reference groups. Column ordering: for basis k and
+group m, output column = m + (k-1)*Lm1.
 }

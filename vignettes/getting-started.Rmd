@@ -8,295 +8,132 @@ vignette: >
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>",
-  fig.width = 7,
-  fig.height = 5
-)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      fig.width = 8, fig.height = 5, dpi = 150)
 ```
 
-## Overview
+MLfused fits multinomial logistic regression that borrows strength from
+external ML predictions via empirical-likelihood constraints. This demo
+compares the standard **MLE** with the **Fused MLE (FMLE)** using the
+same simulation design as the paper (simulation4, shift=0, V.ext=1).
 
-MLfused fits multinomial logistic regression models that incorporate external
-machine learning predictions via empirical-likelihood (EL) constraints.
-The key idea is straightforward: you have a primary dataset with an outcome
-of K classes and p covariates, plus external ML predictions (possibly from a
-larger or differently-distributed dataset) that provide grouped class
-probabilities. MLfused fuses these two sources of information to produce
-coefficient estimates with smaller variance than a standard multinomial model
-fit on the primary data alone.
+## 1. Simulate data
 
-This vignette walks through a minimal example: generating synthetic data,
-fitting a fused model, and comparing the results with a baseline
-multinomial logistic regression.
-
-## Generate synthetic data
-
-We create a multinomial outcome with K = 3 classes, p = 3 covariates, and
-n = 500 primary observations. Class 1 is the baseline (reference) category.
-
-```{r generate-data}
+```{r data}
 library(MLfused)
-set.seed(42)
+library(xgboost)
+library(ggplot2)
 
-n <- 500
-p <- 3
-K <- 3
+set.seed(1)
 
-# Covariates: standard normal
-X <- matrix(rnorm(n * p), nrow = n, ncol = p)
-colnames(X) <- paste0("x", 1:p)
+# --- Global parameters (matching simulation4) ---
+n1 <- 500; n2 <- 10000; p <- 4; K <- 3
+groups <- list(c(1, 2), c(3))
+rho <- 0.8
 
-# True coefficients: (K-1) intercepts and p x (K-1) slopes
-beta_true  <- c(0.3, -0.2)
-Theta_true <- matrix(c(
-   1.0, -0.5,
-  -0.8,  0.6,
-   0.4,  0.3
-), nrow = p, ncol = K - 1, byrow = TRUE)
+Theta_true <- matrix(c(1, -1, -1, 1, 1, 1, -1, 1), nrow = p, ncol = K - 1, byrow = TRUE)
+beta_true  <- c(0.2, -0.1)
+alpha_true <- c(0.35, -0.25)
 
-# Generate class probabilities via softmax and draw outcomes
-eta <- cbind(0, sweep(X %*% Theta_true, 2, beta_true, "+"))
-P_true <- exp(eta) / rowSums(exp(eta))
-y <- apply(P_true, 1, function(prob) sample(1:K, 1, prob = prob))
+Sigma <- matrix(rho, p, p); diag(Sigma) <- 1
 
-table(y)
+# --- External data (n2 = 10000) ---
+X2   <- MASS::mvrnorm(n2, rep(0, p), Sigma)
+eta2 <- X2 %*% Theta_true + matrix(alpha_true, n2, K - 1, byrow = TRUE)
+P2   <- softmax_first(eta2)
+G2   <- apply(P2, 1, function(pp) sample.int(K, 1, prob = pp))
+W2   <- ifelse(G2 %in% c(1, 2), 0L, 1L)
+
+# --- Primary data (n1 = 500, shift = 0) ---
+X1   <- MASS::mvrnorm(n1, rep(0, p), Sigma)
+eta1 <- X1 %*% Theta_true + matrix(beta_true, n1, K - 1, byrow = TRUE)
+P1   <- softmax_first(eta1)
+y    <- apply(P1, 1, function(pp) sample.int(K, 1, prob = pp))
 ```
 
-## Create synthetic external predictions
+## 2. Train XGBoost for qhat
 
-In practice, `qhat` comes from an external ML model (e.g., XGBoost trained
-on a larger auxiliary dataset). Here we simulate it by adding noise to the
-true grouped probabilities.
+```{r xgboost}
+phi_idx <- 1:4
 
-We define two groups: group 1 = {class 1} (reference) and group 2 =
-{class 2, class 3}. The external model predicts the probability of the
-non-reference group (group 2), so `qhat` is an n x 1 matrix.
-
-```{r external-predictions}
-# Define groups: group 1 = {class 1}, group 2 = {classes 2, 3}
-groups <- list(c(1), c(2, 3))
-
-# True group-2 probability
-q_true <- P_true[, 2] + P_true[, 3]
-
-# Simulate external predictions with noise
-qhat    <- matrix(pmin(pmax(q_true + rnorm(n, 0, 0.05), 0.01), 0.99), ncol = 1)
-qhat_se <- matrix(rep(0.05, n), ncol = 1)
-```
-
-## Build the H constraint matrix
-
-The H matrix encodes the basis functions for the EL constraint. With
-`n.q = 0`, we get an intercept plus centered raw covariates. With `n.q = 1`,
-we get an intercept plus natural spline bases with 1 internal knot per
-covariate.
-
-```{r build-H}
-# Use the first two covariates as constraint features
-phi_idx <- c(1, 2)
-
-# n.q = 0: intercept + centered covariates
-H_base <- build_H(X, phi_idx = phi_idx, n.q = 0)
-dim(H_base)
-
-# For L = 2 groups, Lm1 = 1, so no interleaving is needed
-Hmat <- build_Hmat_interleaved(H_base, Lm1 = length(groups) - 1)
-dim(Hmat)
-```
-
-## Set up initial parameters
-
-We initialize the fused model at the multinomial MLE. The parameter vector
-is packed in the order (beta, Theta, alpha, tmat).
-
-```{r init-params}
-# Initialize at zeros (or use nnet::multinom estimates if available)
-beta0  <- rep(0, K - 1)
-Theta0 <- matrix(0, nrow = p, ncol = K - 1)
-alpha0 <- rep(0, K - 1)
-Lm1    <- length(groups) - 1
-H_per  <- ncol(H_base)
-tmat0  <- matrix(0, nrow = Lm1, ncol = H_per)
-
-# Pack into initial parameter vector
-par0 <- pack.hard(beta0, Theta0, alpha0, tmat0)
-```
-
-## Fit the fused model
-
-We use `ML_fused_fast()`, the optimized hard-mode solver. The key tuning
-parameters are:
-
-- `lambda`: regularization for the EL constraint (typically set to the
-  external sample size)
-- `learning.rate`: Newton step size
-- `tau_tmat`: scaling for the t-parameter block
-
-```{r fit-model}
-fit <- ML_fused_fast(
-  par           = par0,
-  X             = X,
-  y             = y,
-  qhat          = qhat,
-  qhat.se       = qhat_se,
-  Hmat          = Hmat,
-  groups        = groups,
-  maxit         = 300,
-  tol           = 1e-6,
-  learning.rate = 0.1,
-  lambda        = 5000,
-  lambda.diag   = 0,
-  compute_se    = TRUE,
-  tau_tmat      = 0.01
+# Train on external data
+dtrain  <- xgb.DMatrix(data = X2[, phi_idx], label = W2)
+xgb_fit <- xgb.train(
+  params  = list(objective = "binary:logistic", max_depth = 4,
+                 eta = 0.1, subsample = 0.5, min_child_weight = 1, nthread = 1),
+  data = dtrain, nrounds = 300, verbose = 0
 )
 
-cat("Convergence:", fit$conv, "\n")
-cat("Best gradient norm:", format(fit$best_grad_norm, digits = 3), "\n")
+# Predict on primary data
+dnew <- xgb.DMatrix(data = X1[, phi_idx])
+qhat <- matrix(predict(xgb_fit, newdata = dnew), ncol = 1)
+
 ```
 
-## Extract results
+## 3. Fit MLE and FMLE
 
-The fitted object contains unpacked parameter estimates and multiple SE
-variants. The score-based adjusted SE (`se.score.adj`) is recommended for
-inference as it is consistent even under mild model misspecification and
-accounts for uncertainty in the external predictions.
+```{r fit}
+# --- MLE ---
+df <- data.frame(y = factor(y), X1)
+fit_mle <- nnet::multinom(y ~ ., data = df, trace = FALSE)
+cf <- coef(fit_mle)
+if (is.vector(cf)) cf <- matrix(cf, nrow = 1)
+se_cf <- summary(fit_mle)$standard.errors
+if (is.vector(se_cf)) se_cf <- matrix(se_cf, nrow = 1)
 
-```{r extract-results}
-# Coefficient estimates
-cat("Intercepts (beta):\n")
-print(round(fit$par$beta, 4))
+# --- FMLE (warm-start from true parameters, matching simulation4) ---
+Hmat <- build_H(X1, phi_idx = phi_idx, n.q = 0)
+t0   <- matrix(0, 1, ncol(Hmat))
+par0 <- pack_hard(beta_true, Theta_true, rep(0, K - 1), t0)
 
-cat("\nSlope matrix (Theta), p x (K-1):\n")
-print(round(fit$par$Theta, 4))
-
-# Score-based adjusted SEs
-se <- fit$se.score.adj
-cat("\nSE for beta:\n")
-print(round(se$beta, 4))
-
-cat("\nSE for Theta:\n")
-print(round(se$Theta, 4))
-
-# 95% confidence intervals for beta
-ci_lo <- fit$par$beta - 1.96 * se$beta
-ci_hi <- fit$par$beta + 1.96 * se$beta
-cat("\n95% CI for beta:\n")
-for (k in seq_along(fit$par$beta)) {
-  cat(sprintf("  Class %d: [%.4f, %.4f]\n", k + 1, ci_lo[k], ci_hi[k]))
-}
-```
-
-## Compare with baseline multinomial regression
-
-```{r compare-nnet, eval = requireNamespace("nnet", quietly = TRUE)}
-# Fit standard multinomial logistic regression
-fit_mn <- nnet::multinom(y ~ X, trace = FALSE)
-cf_mn  <- coef(fit_mn)
-if (is.vector(cf_mn)) cf_mn <- matrix(cf_mn, nrow = 1)
-
-beta_mn  <- cf_mn[, "(Intercept)"]
-Theta_mn <- t(cf_mn[, -1, drop = FALSE])
-se_mn    <- summary(fit_mn)$standard.errors
-
-cat("=== Intercept comparison ===\n")
-cat(sprintf("  True:     %s\n", paste(round(beta_true, 4), collapse = ", ")))
-cat(sprintf("  Multinom: %s\n", paste(round(beta_mn, 4), collapse = ", ")))
-cat(sprintf("  Fused:    %s\n", paste(round(fit$par$beta, 4), collapse = ", ")))
-
-cat("\n=== Slope comparison (column = class, row = covariate) ===\n")
-cat("True:\n"); print(round(Theta_true, 4))
-cat("Multinom:\n"); print(round(Theta_mn, 4))
-cat("Fused:\n"); print(round(fit$par$Theta, 4))
-
-# Compare SEs for intercepts
-se_mn_beta <- se_mn[, "(Intercept)"]
-cat("\n=== SE for intercepts ===\n")
-cat(sprintf("  Multinom: %s\n", paste(round(se_mn_beta, 4), collapse = ", ")))
-cat(sprintf("  Fused:    %s\n", paste(round(se$beta, 4), collapse = ", ")))
-```
-
-## Visualize the comparison
-
-```{r comparison-plot, fig.width = 8, fig.height = 5, eval = requireNamespace("nnet", quietly = TRUE)}
-# Build a data frame for plotting
-coef_names <- c("intercept", colnames(X))
-results <- data.frame(
-  coef   = rep(coef_names, times = K - 1),
-  class  = rep(paste0("Class ", 2:K), each = p + 1),
-  true   = c(rbind(beta_true, Theta_true)),
-  fused  = c(rbind(fit$par$beta, fit$par$Theta)),
-  fused_se = c(rbind(se$beta, se$Theta)),
-  multinom = c(rbind(beta_mn, Theta_mn)),
-  multinom_se = c(rbind(se_mn[, "(Intercept)"], t(se_mn[, -1, drop = FALSE])))
+fit_fmle <- ml_fused(
+  par = par0, X = X1, y = y,
+  qhat = qhat,
+  Hmat = Hmat, groups = groups,
+  lambda = n2, tau_tmat = 0.1,
+  maxit = 500, tol = 1e-6
 )
-
-# Reshape for ggplot
-if (requireNamespace("ggplot2", quietly = TRUE)) {
-  library(ggplot2)
-
-  df_long <- rbind(
-    data.frame(
-      coef     = results$coef,
-      class    = results$class,
-      method   = "Multinomial",
-      estimate = results$multinom,
-      se       = results$multinom_se,
-      stringsAsFactors = FALSE
-    ),
-    data.frame(
-      coef     = results$coef,
-      class    = results$class,
-      method   = "Fused",
-      estimate = results$fused,
-      se       = results$fused_se,
-      stringsAsFactors = FALSE
-    )
-  )
-  df_long$coef <- factor(df_long$coef, levels = coef_names)
-
-  # True values for reference lines
-  df_true <- data.frame(
-    coef  = factor(rep(coef_names, times = K - 1), levels = coef_names),
-    class = rep(paste0("Class ", 2:K), each = p + 1),
-    true  = results$true
-  )
-
-  p_compare <- ggplot(df_long, aes(x = coef, y = estimate,
-                                    color = method, shape = method)) +
-    geom_hline(yintercept = 0, color = "gray80", linewidth = 0.4) +
-    geom_hline(data = df_true, aes(yintercept = true),
-               linetype = "dashed", color = "gray40", linewidth = 0.3) +
-    geom_errorbar(aes(ymin = estimate - 1.96 * se,
-                      ymax = estimate + 1.96 * se),
-                  position = position_dodge(width = 0.5),
-                  width = 0.25, linewidth = 0.4) +
-    geom_point(size = 2.5, position = position_dodge(width = 0.5)) +
-    facet_wrap(~ class) +
-    scale_color_manual(values = c("Multinomial" = "steelblue",
-                                  "Fused" = "tomato3")) +
-    scale_shape_manual(values = c("Multinomial" = 16, "Fused" = 17)) +
-    theme_bw(base_size = 11) +
-    theme(axis.text.x = element_text(angle = 30, hjust = 1),
-          legend.position = "bottom") +
-    labs(x = NULL, y = "Coefficient estimate",
-         title = "Multinomial vs Fused: Coefficient Estimates",
-         subtitle = "Error bars = 95% CI; dashed lines = true values",
-         color = "Method", shape = "Method")
-
-  print(p_compare)
-}
 ```
 
-The fused estimator typically shows smaller confidence intervals than the
-standard multinomial model, especially when the external predictions are
-informative and the primary sample is moderate in size.
+## 4. Coefficient plot
 
-## Next steps
-- See `vignette("nhanes-application")` for a real-data example using NHANES
-  blood pressure data.
-- Increase `n.q` in `build_H()` to allow more flexible constraint functions
-  via natural spline bases.
-- Use `ML_fused()` for an alternative Newton solver with mini-batch and
-  feasibility masking support.
+```{r coefplot, fig.width = 9, fig.height = 5}
+z <- qnorm(0.975)
+
+param_names <- c(
+  paste0("beta[", 1:(K - 1), "]"),
+  paste0("Theta[", rep(1:p, K - 1), ",", rep(1:(K - 1), each = p), "]")
+)
+truth <- c(beta_true, as.vector(Theta_true))
+
+# MLE
+est_mle <- c(cf[, 1], as.vector(t(cf[, -1])))
+se_mle  <- c(se_cf[, 1], as.vector(t(se_cf[, -1])))
+
+# FMLE
+est_fmle <- c(fit_fmle$par$beta, as.vector(fit_fmle$par$Theta))
+se_fmle  <- c(fit_fmle$se$beta, as.vector(fit_fmle$se$Theta))
+
+plot_df <- data.frame(
+  param    = rep(param_names, 2),
+  method   = rep(c("MLE", "FMLE"), each = length(truth)),
+  estimate = c(est_mle, est_fmle),
+  se       = c(se_mle, se_fmle),
+  truth    = rep(truth, 2)
+)
+plot_df$lwr   <- plot_df$estimate - z * plot_df$se
+plot_df$upr   <- plot_df$estimate + z * plot_df$se
+plot_df$param <- factor(plot_df$param, levels = param_names)
+
+ggplot(plot_df, aes(x = param, y = estimate, color = method)) +
+  geom_hline(aes(yintercept = truth), linetype = "dashed", color = "grey50") +
+  geom_pointrange(aes(ymin = lwr, ymax = upr),
+                  position = position_dodge(width = 0.5), size = 0.5) +
+  scale_color_manual(values = c(MLE = "#E69F00", FMLE = "#0072B2")) +
+  labs(title = "MLE vs FMLE: Estimates with SE Bars",
+       subtitle = "Dashed lines = true values | Bars = 95% CI",
+       x = NULL, y = "Estimate", color = "Method") +
+  theme_minimal(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top")
+```

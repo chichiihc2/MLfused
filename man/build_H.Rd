@@ -2,35 +2,24 @@
 % Please edit documentation in R/basis.R
 \name{build_H}
 \alias{build_H}
-\title{Build H constraint basis matrix}
+\title{Build Constraint Basis Matrix}
 \usage{
 build_H(x_mat, phi_idx, n.q = 2)
 }
 \arguments{
-\item{x_mat}{A data frame or matrix of covariates (n rows).}
+\item{x_mat}{A data frame or matrix of covariates.}
 
-\item{phi_idx}{Integer vector of column indices in \code{x_mat} to include
-in the basis.}
+\item{phi_idx}{Integer vector of column indices to use.}
 
-\item{n.q}{Number of internal knots per feature for the natural spline basis.
-If \code{n.q <= 0}, centered raw features are used instead of splines.
-Defaults to \code{2}.}
+\item{n.q}{Number of internal knots per feature. If \code{<= 0}, uses
+centered raw covariates. Default 2.}
 }
 \value{
-A numeric matrix with \code{n} rows. The first column is an
-intercept (all ones). Remaining columns are either centered raw features
-(\code{n.q <= 0}) or natural cubic spline basis columns (\code{n.q > 0}).
-The matrix carries the following attributes:
-\describe{
-\item{\code{basis}}{Character string \code{"natural_spline"}.}
-\item{\code{n.q}}{The number of internal knots requested.}
-\item{\code{knots}}{A list of knot information per feature (or
-\code{NULL} when \code{n.q <= 0}).}
-\item{\code{degree}}{Integer \code{3} (cubic).}
-}
+An n x H matrix. Column 1 is an intercept. Attributes include
+\code{basis}, \code{n.q}, \code{knots}, \code{degree}.
 }
 \description{
-Constructs a constraint basis matrix using an intercept column plus either
-centered raw features (when \code{n.q <= 0}) or natural cubic spline bases
-(when \code{n.q > 0}) for selected columns of the input matrix.
+Constructs a basis matrix H for the empirical-likelihood constraint,
+using either centered raw covariates (\code{n.q <= 0}) or natural cubic
+spline bases (\code{n.q > 0}).
 }
