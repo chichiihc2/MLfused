@@ -15,7 +15,6 @@ bootstrap_se(
   maxit = 300,
   tol = 1e-04,
   learning.rate = 0.1,
-  lambda = NULL,
   lambda.diag = 0,
   tau_tmat = 1
 )
@@ -40,8 +39,6 @@ bootstrap_se(
 \item{tol}{Convergence tolerance (default 1e-4).}
 
 \item{learning.rate}{Step size (default 0.1).}
-
-\item{lambda}{Regularization parameter. NULL defaults to n.}
 
 \item{lambda.diag}{Ridge stabilization (default 0).}
 

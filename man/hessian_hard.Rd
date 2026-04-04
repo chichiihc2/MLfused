@@ -13,8 +13,7 @@ hessian_hard(
   A,
   lambda.diag = 0,
   eps_feas = 1e-08,
-  tau_tmat = 1,
-  lambda = NULL
+  tau_tmat = 1
 )
 }
 \arguments{
@@ -35,8 +34,6 @@ hessian_hard(
 \item{eps_feas}{Feasibility threshold (default 1e-8).}
 
 \item{tau_tmat}{L2 penalty on tmat (default 1).}
-
-\item{lambda}{EL constraint weight (default NULL = n, giving ratio 1).}
 }
 \value{
 Symmetric Dnoq x Dnoq Hessian matrix.

@@ -4,17 +4,7 @@
 \alias{sandwich_se}
 \title{Sandwich Standard Errors}
 \usage{
-sandwich_se(
-  par,
-  X,
-  y,
-  qhat,
-  Hmat,
-  A,
-  lambda.diag = 0,
-  hess_precomputed = NULL,
-  lambda = NULL
-)
+sandwich_se(par, X, y, qhat, Hmat, A, lambda.diag = 0, hess_precomputed = NULL)
 }
 \arguments{
 \item{par}{Packed hard-mode parameter vector.}
@@ -32,8 +22,6 @@ sandwich_se(
 \item{lambda.diag}{Ridge stabilization (default 0).}
 
 \item{hess_precomputed}{Optional precomputed Hessian (at tau_tmat=0).}
-
-\item{lambda}{EL constraint weight (default NULL = n, giving ratio 1).}
 }
 \value{
 List with:

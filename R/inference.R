@@ -11,7 +11,6 @@
 #' @param A K x L group matrix.
 #' @param lambda.diag Ridge stabilization (default 0).
 #' @param hess_precomputed Optional precomputed Hessian (at tau_tmat=0).
-#' @param lambda EL constraint weight (default NULL = n, giving ratio 1).
 #'
 #' @return List with:
 #'   \describe{
@@ -22,16 +21,14 @@
 #'   }
 #' @export
 sandwich_se <- function(par, X, y, qhat, Hmat, A,
-                        lambda.diag = 0, hess_precomputed = NULL,
-                        lambda = NULL) {
+                        lambda.diag = 0, hess_precomputed = NULL) {
   up  <- unpack_hard(par)
   n   <- nrow(X); p <- ncol(X); K <- ncol(up$Theta) + 1; d <- K - 1
   Lm1 <- nrow(up$tmat); H <- ncol(Hmat) / Lm1
 
   hess0 <- if (!is.null(hess_precomputed)) hess_precomputed else
     hessian_hard(par, X, y, qhat, Hmat, A,
-                 lambda.diag = lambda.diag, tau_tmat = 0,
-                 lambda = lambda)
+                 lambda.diag = lambda.diag, tau_tmat = 0)
 
   ix <- make_hard_indices(d, p, Lm1, H)
 

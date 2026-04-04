@@ -15,7 +15,6 @@ ml_fused(
   tol = 1e-06,
   learning.rate = 0.1,
   batch_frac = 1,
-  lambda = NULL,
   lambda.diag = 0,
   compute_se = TRUE,
   store_trace = FALSE,
@@ -43,11 +42,6 @@ ml_fused(
 \item{learning.rate}{Step size for Newton update (default 0.1).}
 
 \item{batch_frac}{Mini-batch fraction in (0,1] (default 1).}
-
-\item{lambda}{EL constraint weight. The EL term is scaled by
-\code{lambda / n}. Default \code{NULL} uses \code{lambda = n}
-(ratio = 1). Set to the external sample size to upweight the
-EL constraint.}
 
 \item{lambda.diag}{Ridge stabilization for Hessian diagonal (default 0).}
 

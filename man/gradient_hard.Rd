@@ -4,7 +4,7 @@
 \alias{gradient_hard}
 \title{Gradient}
 \usage{
-gradient_hard(par, X, y, qhat, Hmat, A, tau_tmat = 1, lambda = NULL)
+gradient_hard(par, X, y, qhat, Hmat, A, tau_tmat = 1)
 }
 \arguments{
 \item{par}{Packed hard-mode parameter vector.}
@@ -20,8 +20,6 @@ gradient_hard(par, X, y, qhat, Hmat, A, tau_tmat = 1, lambda = NULL)
 \item{A}{K x L group matrix.}
 
 \item{tau_tmat}{L2 penalty on tmat (default 1).}
-
-\item{lambda}{EL constraint weight (default NULL = n, giving ratio 1).}
 }
 \value{
 Numeric gradient vector of length Dnoq.

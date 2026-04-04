@@ -13,7 +13,6 @@
 #' @param maxit Max iterations per replicate (default 300).
 #' @param tol Convergence tolerance (default 1e-4).
 #' @param learning.rate Step size (default 0.1).
-#' @param lambda Regularization parameter. NULL defaults to n.
 #' @param lambda.diag Ridge stabilization (default 0).
 #' @param tau_tmat L2 penalty on tmat (default 1).
 #'
@@ -22,10 +21,9 @@
 #' @export
 bootstrap_se <- function(par_fit, X, y, qhat, Hmat, groups,
                          B = 200, maxit = 300, tol = 1e-4,
-                         learning.rate = 0.1, lambda = NULL,
+                         learning.rate = 0.1,
                          lambda.diag = 0, tau_tmat = 1) {
   n <- nrow(X)
-  if (is.null(lambda)) lambda <- n
   A <- group_matrix(groups, length(unique(y)))
 
   tmat0 <- matrix(0, nrow = nrow(par_fit$tmat), ncol = ncol(par_fit$tmat))
@@ -49,7 +47,7 @@ bootstrap_se <- function(par_fit, X, y, qhat, Hmat, groups,
                Hmat = Hb, groups = groups,
                maxit = maxit, tol = tol,
                learning.rate = learning.rate,
-               lambda = lambda, lambda.diag = lambda.diag,
+               lambda.diag = lambda.diag,
                compute_se = FALSE, tau_tmat = tau_tmat),
       error = function(e) NULL
     )
@@ -99,11 +97,10 @@ bootstrap_se <- function(par_fit, X, y, qhat, Hmat, groups,
 #' @export
 bootstrap_se_diagnostic <- function(par_fit, X, y, qhat, Hmat, groups,
                                     B = 500, maxit = 300, tol = 1e-4,
-                                    learning.rate = 0.1, lambda = NULL,
+                                    learning.rate = 0.1,
                                     lambda.diag = 0, store_indices = FALSE,
                                     tau_tmat = 1) {
   n <- nrow(X)
-  if (is.null(lambda)) lambda <- n
   A <- group_matrix(groups, length(unique(y)))
 
   tmat0 <- matrix(0, nrow = nrow(par_fit$tmat), ncol = ncol(par_fit$tmat))
@@ -134,7 +131,7 @@ bootstrap_se_diagnostic <- function(par_fit, X, y, qhat, Hmat, groups,
                Hmat = Hb, groups = groups,
                maxit = maxit, tol = tol,
                learning.rate = learning.rate,
-               lambda = lambda, lambda.diag = lambda.diag,
+               lambda.diag = lambda.diag,
                compute_se = FALSE, tau_tmat = tau_tmat),
       error = function(e) { attr(e, "msg") <- conditionMessage(e); e }
     )

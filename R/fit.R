@@ -20,10 +20,6 @@
 #' @param tol Convergence tolerance on gradient infinity-norm (default 1e-6).
 #' @param learning.rate Step size for Newton update (default 0.1).
 #' @param batch_frac Mini-batch fraction in (0,1] (default 1).
-#' @param lambda EL constraint weight. The EL term is scaled by
-#'   \code{lambda / n}. Default \code{NULL} uses \code{lambda = n}
-#'   (ratio = 1). Set to the external sample size to upweight the
-#'   EL constraint.
 #' @param lambda.diag Ridge stabilization for Hessian diagonal (default 0).
 #' @param compute_se Compute standard errors at convergence (default TRUE).
 #' @param store_trace Store parameter trace (default FALSE).
@@ -46,7 +42,6 @@ ml_fused <- function(par, X, y, qhat, Hmat, groups,
                      maxit = 500, tol = 1e-6,
                      learning.rate = 0.1,
                      batch_frac = 1,
-                     lambda = NULL,
                      lambda.diag = 0,
                      compute_se = TRUE,
                      store_trace = FALSE,
@@ -54,7 +49,6 @@ ml_fused <- function(par, X, y, qhat, Hmat, groups,
                      tau_tmat = 1) {
 
   p <- ncol(X); K <- length(unique(y)); L <- length(groups); n <- nrow(X)
-  if (is.null(lambda)) lambda <- n
   H <- dim(Hmat)[2] / (L - 1)
   attributes(par)$dims <- list(p = p, K = K, L = L, H = H)
   A <- group_matrix(groups, K)
@@ -83,12 +77,11 @@ ml_fused <- function(par, X, y, qhat, Hmat, groups,
     gh <- grad_hess_hard(par_curr, Xi, yi, qh_i, Hi, A,
                          lambda.diag = lambda.diag,
                          return_shared = diagnostic_trace,
-                         tau_tmat = tau_tmat,
-                         lambda = lambda)
+                         tau_tmat = tau_tmat)
     grad_curr <- gh$grad
     Hess      <- gh$hess
 
-    obj_val <- objective_hard(par_curr, Xi, yi, qh_i, Hi, A, lambda = lambda)$obj
+    obj_val <- objective_hard(par_curr, Xi, yi, qh_i, Hi, A)$obj
 
     grad_norm <- max(abs(grad_curr))
     actual_iters <- it
@@ -141,7 +134,7 @@ ml_fused <- function(par, X, y, qhat, Hmat, groups,
                            best_grad_norm, best_iter,
                            grad.error[1:it], obj.record[1:it], 0L,
                            if (store_trace) par_trace else NULL,
-                           diag_trace, lambda = lambda))
+                           diag_trace))
     }
     attributes(delta) <- attributes(grad_curr)
     par_curr <- par_curr + learning.rate * as.numeric(delta)
@@ -154,7 +147,7 @@ ml_fused <- function(par, X, y, qhat, Hmat, groups,
                 best_grad_norm, best_iter,
                 grad.error[1:actual_iters], obj.record[1:actual_iters], 1L,
                 if (store_trace) par_trace else NULL,
-                diag_trace, lambda = lambda)
+                diag_trace)
 }
 
 
@@ -163,8 +156,7 @@ ml_fused <- function(par, X, y, qhat, Hmat, groups,
                           lambda.diag, compute_se,
                           best_grad_norm, best_iter,
                           grad.error, obj.record, conv,
-                          par_trace, diag_trace = NULL,
-                          lambda = NULL) {
+                          par_trace, diag_trace = NULL) {
   up_best <- unpack_hard(par_best)
   base <- list(
     par = up_best, best_grad_norm = best_grad_norm,
@@ -176,13 +168,11 @@ ml_fused <- function(par, X, y, qhat, Hmat, groups,
   if (!compute_se) return(base)
 
   hess_conv <- hessian_hard(par_best, X, y, qhat, Hmat, A,
-                            lambda.diag = lambda.diag, tau_tmat = 0,
-                            lambda = lambda)
+                            lambda.diag = lambda.diag, tau_tmat = 0)
 
   conf <- sandwich_se(par_best, X, y, qhat, Hmat, A,
                       lambda.diag = lambda.diag,
-                      hess_precomputed = hess_conv,
-                      lambda = lambda)
+                      hess_precomputed = hess_conv)
 
   base$conf <- conf
   base$se   <- unpack_hard(conf$se)

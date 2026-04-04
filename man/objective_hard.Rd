@@ -4,7 +4,7 @@
 \alias{objective_hard}
 \title{Objective Value}
 \usage{
-objective_hard(par, X, y, qhat, Hmat, A, lambda = NULL)
+objective_hard(par, X, y, qhat, Hmat, A)
 }
 \arguments{
 \item{par}{Packed hard-mode parameter vector.}
@@ -18,11 +18,6 @@ objective_hard(par, X, y, qhat, Hmat, A, lambda = NULL)
 \item{Hmat}{Basis matrix.}
 
 \item{A}{K x L group matrix.}
-
-\item{lambda}{EL constraint weight. The EL term is scaled by
-\code{lambda / n}. Default \code{NULL} uses \code{lambda = n}
-(ratio = 1). Set to the external sample size to upweight the
-EL constraint.}
 }
 \value{
 List with \code{obj} (scalar), \code{P} (n x K), \code{Pext_L} (n x L).

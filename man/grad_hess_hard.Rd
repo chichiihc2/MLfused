@@ -14,8 +14,7 @@ grad_hess_hard(
   lambda.diag = 0,
   eps_feas = 1e-08,
   return_shared = FALSE,
-  tau_tmat = 1,
-  lambda = NULL
+  tau_tmat = 1
 )
 }
 \arguments{
@@ -38,8 +37,6 @@ grad_hess_hard(
 \item{return_shared}{If TRUE, include intermediate quantities in output.}
 
 \item{tau_tmat}{L2 penalty on tmat (default 1).}
-
-\item{lambda}{EL constraint weight (default NULL = n, giving ratio 1).}
 }
 \value{
 List with \code{grad}, \code{hess}, and optionally \code{shared}.

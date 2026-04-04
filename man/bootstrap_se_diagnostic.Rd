@@ -15,7 +15,6 @@ bootstrap_se_diagnostic(
   maxit = 300,
   tol = 1e-04,
   learning.rate = 0.1,
-  lambda = NULL,
   lambda.diag = 0,
   store_indices = FALSE,
   tau_tmat = 1
@@ -41,8 +40,6 @@ bootstrap_se_diagnostic(
 \item{tol}{Convergence tolerance (default 1e-4).}
 
 \item{learning.rate}{Step size (default 0.1).}
-
-\item{lambda}{Regularization parameter. NULL defaults to n.}
 
 \item{lambda.diag}{Ridge stabilization (default 0).}
 

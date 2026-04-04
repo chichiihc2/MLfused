@@ -9,7 +9,7 @@
 Fits multinomial logistic regression models that incorporate external machine learning predictions via empirical-likelihood (EL) constraints. Implements Newton-step optimization with analytic gradient and Hessian, multiple sandwich-based standard error estimators (score-based, Theorem 3, bootstrap), and vectorized computation.
 }
 \author{
-\strong{Maintainer}: First Last \email{email@example.com}
+\strong{Maintainer}: Chi-Shian Dai \email{47463697+chichiihc@users.noreply.github.com}
 
 }
 \keyword{internal}

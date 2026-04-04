@@ -117,20 +117,14 @@ compute_shared <- function(par, X, y, qhat, Hmat, A, eps_feas = 1e-8) {
 #' @param qhat n x (L-1) external probability matrix.
 #' @param Hmat Basis matrix.
 #' @param A K x L group matrix.
-#' @param lambda EL constraint weight. The EL term is scaled by
-#'   \code{lambda / n}. Default \code{NULL} uses \code{lambda = n}
-#'   (ratio = 1). Set to the external sample size to upweight the
-#'   EL constraint.
-#'
 #' @return List with \code{obj} (scalar), \code{P} (n x K), \code{Pext_L} (n x L).
 #' @export
-objective_hard <- function(par, X, y, qhat, Hmat, A, lambda = NULL) {
+objective_hard <- function(par, X, y, qhat, Hmat, A) {
   up    <- unpack_hard(par)
   beta  <- up$beta; Theta <- up$Theta; alpha <- up$alpha; tmat <- up$tmat
 
   n <- nrow(X); K <- ncol(Theta) + 1
   L <- ncol(A); Lm1 <- L - 1; H <- as.integer(ncol(Hmat) / Lm1)
-  lam_ratio <- if (is.null(lambda)) 1 else lambda / n
 
   eta <- X %*% Theta + matrix(beta, n, K - 1, byrow = TRUE)
   P   <- softmax_first(eta)
@@ -150,7 +144,7 @@ objective_hard <- function(par, X, y, qhat, Hmat, A, lambda = NULL) {
   }
   el_term <- sum(log(pmax(1 + Svec, 1e-10)))
 
-  list(obj = -(ell - lam_ratio * el_term), P = P, Pext_L = Pext_L)
+  list(obj = -(ell - el_term), P = P, Pext_L = Pext_L)
 }
 
 
@@ -165,22 +159,20 @@ objective_hard <- function(par, X, y, qhat, Hmat, A, lambda = NULL) {
 #' @param Hmat Basis matrix.
 #' @param A K x L group matrix.
 #' @param tau_tmat L2 penalty on tmat (default 1).
-#' @param lambda EL constraint weight (default NULL = n, giving ratio 1).
 #'
 #' @return Numeric gradient vector of length Dnoq.
 #' @export
-gradient_hard <- function(par, X, y, qhat, Hmat, A, tau_tmat = 1, lambda = NULL) {
+gradient_hard <- function(par, X, y, qhat, Hmat, A, tau_tmat = 1) {
   sh <- compute_shared(par, X, y, qhat, Hmat, A)
-  lam_ratio <- if (is.null(lambda)) 1 else lambda / sh$n
 
   grad_beta  <- colSums(sh$R)
-  grad_Theta <- crossprod(sh$X, sh$R) + lam_ratio * crossprod(sh$X, sh$G_ext)
-  grad_alpha <- lam_ratio * colSums(sh$G_ext)
+  grad_Theta <- crossprod(sh$X, sh$R) + crossprod(sh$X, sh$G_ext)
+  grad_alpha <- colSums(sh$G_ext)
 
   grad_tmat <- matrix(0, sh$Lm1, sh$H)
   for (m in seq_len(sh$Lm1)) {
     Hm <- Hmat[, m + (0:(sh$H - 1)) * sh$Lm1, drop = FALSE]
-    grad_tmat[m, ] <- lam_ratio * crossprod(Hm, sh$w * sh$v_list[[m]])
+    grad_tmat[m, ] <- crossprod(Hm, sh$w * sh$v_list[[m]])
   }
 
   grad <- pack_hard(grad_beta, grad_Theta, grad_alpha, grad_tmat)
@@ -205,16 +197,14 @@ gradient_hard <- function(par, X, y, qhat, Hmat, A, tau_tmat = 1, lambda = NULL)
 #' @param lambda.diag Ridge regularisation on the diagonal (default 0).
 #' @param eps_feas Feasibility threshold (default 1e-8).
 #' @param tau_tmat L2 penalty on tmat (default 1).
-#' @param lambda EL constraint weight (default NULL = n, giving ratio 1).
 #'
 #' @return Symmetric Dnoq x Dnoq Hessian matrix.
 #' @export
 hessian_hard <- function(par, X, y, qhat, Hmat, A,
                          lambda.diag = 0, eps_feas = 1e-8,
-                         tau_tmat = 1, lambda = NULL) {
+                         tau_tmat = 1) {
   sh <- compute_shared(par, X, y, qhat, Hmat, A, eps_feas)
-  lam_ratio <- if (is.null(lambda)) 1 else lambda / sh$n
-  .build_hessian_from_shared(sh, Hmat, lambda.diag, tau_tmat, lam_ratio)
+  .build_hessian_from_shared(sh, Hmat, lambda.diag, tau_tmat)
 }
 
 
@@ -229,20 +219,18 @@ hessian_hard <- function(par, X, y, qhat, Hmat, A,
 #' @export
 grad_hess_hard <- function(par, X, y, qhat, Hmat, A,
                            lambda.diag = 0, eps_feas = 1e-8,
-                           return_shared = FALSE, tau_tmat = 1,
-                           lambda = NULL) {
+                           return_shared = FALSE, tau_tmat = 1) {
   sh <- compute_shared(par, X, y, qhat, Hmat, A, eps_feas)
-  lam_ratio <- if (is.null(lambda)) 1 else lambda / sh$n
 
   # Gradient
   grad_beta  <- colSums(sh$R)
-  grad_Theta <- crossprod(sh$X, sh$R) + lam_ratio * crossprod(sh$X, sh$G_ext)
-  grad_alpha <- lam_ratio * colSums(sh$G_ext)
+  grad_Theta <- crossprod(sh$X, sh$R) + crossprod(sh$X, sh$G_ext)
+  grad_alpha <- colSums(sh$G_ext)
 
   grad_tmat <- matrix(0, sh$Lm1, sh$H)
   for (m in seq_len(sh$Lm1)) {
     Hm <- Hmat[, m + (0:(sh$H - 1)) * sh$Lm1, drop = FALSE]
-    grad_tmat[m, ] <- lam_ratio * crossprod(Hm, sh$w * sh$v_list[[m]])
+    grad_tmat[m, ] <- crossprod(Hm, sh$w * sh$v_list[[m]])
   }
   grad <- pack_hard(grad_beta, grad_Theta, grad_alpha, grad_tmat)
 
@@ -250,7 +238,7 @@ grad_hess_hard <- function(par, X, y, qhat, Hmat, A,
   grad[ix$idx_t] <- grad[ix$idx_t] + tau_tmat * par[ix$idx_t]
 
   # Hessian
-  hess <- .build_hessian_from_shared(sh, Hmat, lambda.diag, tau_tmat, lam_ratio)
+  hess <- .build_hessian_from_shared(sh, Hmat, lambda.diag, tau_tmat)
 
   result <- list(grad = grad, hess = hess)
   if (return_shared) result$shared <- sh
@@ -261,7 +249,7 @@ grad_hess_hard <- function(par, X, y, qhat, Hmat, A,
 # --- Internal Hessian builder ---
 
 #' @keywords internal
-.build_hessian_from_shared <- function(sh, Hmat, lambda.diag = 0, tau_tmat = 1, lam_ratio = 1) {
+.build_hessian_from_shared <- function(sh, Hmat, lambda.diag = 0, tau_tmat = 1) {
   d <- sh$d; p <- sh$p; n <- sh$n; Lm1 <- sh$Lm1; H <- sh$H
   Xm <- sh$X; pPri <- sh$pPri; pE <- sh$pE; w <- sh$w
 
@@ -356,16 +344,16 @@ grad_hess_hard <- function(par, X, y, qhat, Hmat, A,
   place(t(H_bTheta), ix$idx_Theta, ix$idx_beta)
   place(H_ThetaTh,   ix$idx_Theta, ix$idx_Theta)
 
-  place(lam_ratio * H_aa,            ix$idx_alpha, ix$idx_alpha)
-  place(lam_ratio * H_aTheta,        ix$idx_alpha, ix$idx_Theta)
-  place(lam_ratio * t(H_aTheta),     ix$idx_Theta, ix$idx_alpha)
-  place(lam_ratio * H_ThetaThEL,     ix$idx_Theta, ix$idx_Theta)
+  place(H_aa,        ix$idx_alpha, ix$idx_alpha)
+  place(H_aTheta,    ix$idx_alpha, ix$idx_Theta)
+  place(t(H_aTheta), ix$idx_Theta, ix$idx_alpha)
+  place(H_ThetaThEL, ix$idx_Theta, ix$idx_Theta)
 
-  place(lam_ratio * H_at,        ix$idx_alpha, ix$idx_t)
-  place(lam_ratio * t(H_at),     ix$idx_t,     ix$idx_alpha)
-  place(lam_ratio * H_Thetat,    ix$idx_Theta, ix$idx_t)
-  place(lam_ratio * t(H_Thetat), ix$idx_t,     ix$idx_Theta)
-  place(lam_ratio * H_tt,        ix$idx_t,     ix$idx_t)
+  place(H_at,        ix$idx_alpha, ix$idx_t)
+  place(t(H_at),     ix$idx_t,     ix$idx_alpha)
+  place(H_Thetat,    ix$idx_Theta, ix$idx_t)
+  place(t(H_Thetat), ix$idx_t,     ix$idx_Theta)
+  place(H_tt,        ix$idx_t,     ix$idx_t)
 
   diag(Hfull[ix$idx_t, ix$idx_t]) <- diag(Hfull[ix$idx_t, ix$idx_t]) + tau_tmat
   diag(Hfull) <- diag(Hfull) + lambda.diag
