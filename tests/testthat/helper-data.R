@@ -28,4 +28,3 @@ test_Hmat <- build_H(test_X, phi_idx = c(1, 2), n.q = 0)
 # Initial parameters
 test_t0 <- matrix(0, nrow = 1, ncol = ncol(test_Hmat))
 test_par_hard <- pack_hard(test_beta, test_Theta, test_alpha, test_t0)
-test_lambda <- test_n

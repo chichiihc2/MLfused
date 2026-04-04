@@ -6,7 +6,7 @@ test_that("sandwich_se returns correct structure", {
     qhat = test_qhat,
     Hmat = test_Hmat, groups = test_groups,
     maxit = 500, tol = 1e-6,
-    learning.rate = 0.1, lambda = test_lambda,
+    learning.rate = 0.1,
     compute_se = FALSE
   )
 

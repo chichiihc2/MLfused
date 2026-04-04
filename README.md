@@ -101,7 +101,18 @@ l_n(gamma | q_hat) = l_n(theta) - (1/n) sum_i log(1 + sum_{l,h} g_{l,h}(X_i) * l
 
 where `l_n(theta)` is the primary multinomial log-likelihood, and the second term encodes empirical-likelihood constraints linking the primary model to external predictions through a basis function set H.
 
-An L2 penalty `tau * ||lambda||^2` regularizes the Lagrange multipliers for numerical stability.
+An L2 penalty `tau * ||lambda||^2` regularizes the Lagrange multipliers for numerical stability (Section 3.5 of the paper, default `tau = 0.1`). The Newton step size is damped (`learning.rate = 0.1` by default) for robustness of the EL log-term.
+
+## Parameterization
+
+The paper uses class K as the softmax baseline; the code uses class 1. The two are equivalent under relabeling. In the code:
+
+- `beta` = intercepts for classes 2, ..., K (the paper's `theta_{k,1}`)
+- `Theta` = slope matrix, p x (K-1) (the paper's `theta_{k,2:p}`)
+- `alpha` = external intercepts (the paper's `phi_{k,1}`)
+- `tmat` = Lagrange multipliers (the paper's `lambda_{l,h}`)
+
+Under Example 2 (proportion heterogeneity), the shared parameter `psi` consists of the slope coefficients in `Theta`, while the free parameters are `beta` (primary) and `alpha` (external).
 
 ## Vignette
 
@@ -110,6 +121,24 @@ vignette("getting-started", package = "MLfused")
 ```
 
 Reproduces the paper's simulation design: K=3 classes, L=2 groups (coarsened external labels), XGBoost external predictor, comparing MLE and FMLE with a coefficient plot.
+
+## Real Data (NHANES)
+
+The package bundles pre-processed NHANES 2013-2018 data used in Section 5 of the paper (blood pressure classification: Normal / Prehypertension / Hypertension):
+
+| File | Description |
+|------|-------------|
+| `inst/extdata/internal_cleaned.csv` | Primary data (9,186 units, 14 covariates) |
+| `inst/extdata/external_cleaned.csv` | External data (12,425 units, 8 covariates) |
+| `inst/extdata/internal_pred_full.csv` | Primary data with 3-class XGBoost predictions |
+
+To reproduce the paper's real-data analysis:
+
+```r
+source(system.file("scripts", "nhanes_analysis.R", package = "MLfused"))
+```
+
+This fits MLE and FMLE on the full primary sample (n=9,186) and a random subsample (n=600), matching Figure 2 in the paper.
 
 ## Citation
 

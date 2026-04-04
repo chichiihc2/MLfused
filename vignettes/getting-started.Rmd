@@ -10,6 +10,10 @@ vignette: >
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
                       fig.width = 8, fig.height = 5, dpi = 150)
+has_deps <- requireNamespace("xgboost", quietly = TRUE) &&
+            requireNamespace("nnet", quietly = TRUE) &&
+            requireNamespace("ggplot2", quietly = TRUE)
+knitr::opts_chunk$set(eval = has_deps)
 ```
 
 MLfused fits multinomial logistic regression that borrows strength from

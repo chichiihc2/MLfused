@@ -6,7 +6,7 @@ test_that("ml_fused converges on test data", {
     qhat = test_qhat,
     Hmat = test_Hmat, groups = test_groups,
     maxit = 500, tol = 1e-6,
-    learning.rate = 0.1, lambda = test_lambda,
+    learning.rate = 0.1,
     compute_se = TRUE
   )
 
@@ -23,7 +23,7 @@ test_that("ml_fused produces finite sandwich SEs", {
     qhat = test_qhat,
     Hmat = test_Hmat, groups = test_groups,
     maxit = 500, tol = 1e-6,
-    learning.rate = 0.1, lambda = test_lambda,
+    learning.rate = 0.1,
     compute_se = TRUE
   )
 
@@ -39,7 +39,7 @@ test_that("ml_fused with compute_se=FALSE skips inference", {
     qhat = test_qhat,
     Hmat = test_Hmat, groups = test_groups,
     maxit = 100, tol = 1e-4,
-    learning.rate = 0.1, lambda = test_lambda,
+    learning.rate = 0.1,
     compute_se = FALSE
   )
 
@@ -55,7 +55,7 @@ test_that("tau_tmat affects optimization", {
     qhat = test_qhat,
     Hmat = test_Hmat, groups = test_groups,
     maxit = 200, tol = 1e-6,
-    learning.rate = 0.1, lambda = test_lambda,
+    learning.rate = 0.1,
     compute_se = FALSE, tau_tmat = 0.01
   )
 
@@ -64,7 +64,7 @@ test_that("tau_tmat affects optimization", {
     qhat = test_qhat,
     Hmat = test_Hmat, groups = test_groups,
     maxit = 200, tol = 1e-6,
-    learning.rate = 0.1, lambda = test_lambda,
+    learning.rate = 0.1,
     compute_se = FALSE, tau_tmat = 10
   )
 

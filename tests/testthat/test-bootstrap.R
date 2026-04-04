@@ -6,7 +6,7 @@ test_that("bootstrap_se runs and returns correct structure", {
     qhat = test_qhat,
     Hmat = test_Hmat, groups = test_groups,
     maxit = 200, tol = 1e-4,
-    learning.rate = 0.1, lambda = test_lambda,
+    learning.rate = 0.1,
     compute_se = FALSE, tau_tmat = 1
   )
 
@@ -15,7 +15,7 @@ test_that("bootstrap_se runs and returns correct structure", {
     qhat = test_qhat,
     Hmat = test_Hmat, groups = test_groups,
     B = 10, maxit = 100, tol = 1e-3,
-    learning.rate = 0.1, lambda = test_lambda,
+    learning.rate = 0.1,
     tau_tmat = 1
   )
 

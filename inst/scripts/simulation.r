@@ -271,39 +271,34 @@ run_simulation <- function(seed,
         t0   <- matrix(0, nrow = ncol(qhat) , ncol = ncol(H_X1))
 
         # --- Fit Fused model ---
-        par0.hard <- pack.hard( beta_true,Theta_true , alpha0, t0)
+        par0.hard <- pack_hard(beta_true, Theta_true, alpha0, t0)
 
-        fit.hard <- ML_fused_fast(
-          par = par0.hard, X = X1, y = G1, qhat, qhat.se, Hmat = H_X1,
+        fit.hard <- ml_fused(
+          par = par0.hard, X = X1, y = G1,
+          qhat = qhat, Hmat = H_X1,
           groups = list(c(1, 2), c(3)),
           maxit = maxit, tol = tol,
           learning.rate = learning.rate, batch_frac = 1,
-          lambda = n2, lambda.diag = 0
+          lambda.diag = 0
         )
 
         boot_diag <- list(n_kept = NA_integer_, n_nonconv = NA_integer_, n_error = NA_integer_)
         if (B_boot > 0) {
-          boot_res <- bootstrap_hard_se_fast(
+          boot_res <- bootstrap_se(
             par_fit = fit.hard$par, X = X1, y = G1,
-            qhat = qhat, qhat.se = qhat.se, Hmat = H_X1,
+            qhat = qhat, Hmat = H_X1,
             groups = list(c(1, 2), c(3)),
             B = B_boot, maxit = 500, tol = 1e-6,
-            learning.rate = learning.rate, lambda = n2
+            learning.rate = learning.rate
           )
           boot_diag <- list(n_kept = boot_res$n_kept, n_nonconv = boot_res$n_nonconv, n_error = boot_res$n_error)
           se_boot_raw <- boot_res$se
-          fit.hard$se.boot <- unpack.hard(se_boot_raw)
-
-          correction_diag <- diag(fit.hard$conf$conf_matrix.adj - fit.hard$conf$conf_matrix)
-          correction_diag <- pmax(correction_diag, 0)
-          se_boot_adj_vec <- sqrt(as.numeric(se_boot_raw)^2 + correction_diag)
-          attributes(se_boot_adj_vec) <- attributes(se_boot_raw)
-          fit.hard$se.boot.adj <- unpack.hard(se_boot_adj_vec)
+          fit.hard$se.boot <- unpack_hard(se_boot_raw)
 
           # Quantile-based (percentile) bootstrap CIs
           fit.hard$ci.boot.q <- list(
-            lwr = unpack.hard(boot_res$q_lwr),
-            upr = unpack.hard(boot_res$q_upr)
+            lwr = unpack_hard(boot_res$q_lwr),
+            upr = unpack_hard(boot_res$q_upr)
           )
         }
 

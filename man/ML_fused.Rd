@@ -70,11 +70,13 @@ Fits a multinomial logistic regression model on primary data while
 incorporating external ML predictions via an empirical-likelihood
 constraint. Uses Newton updates with analytic gradient and Hessian.
 }
-\section{Reference conventions}{
+\section{Parameterization}{
 
-\itemize{
-\item Class 1 is the baseline in the softmax parameterization.
-\item \code{groups[[1]]} is the reference group.
-}
+The code uses class 1 as the softmax baseline (linear predictor fixed
+at 0), so parameters correspond to classes 2, ..., K.
+The paper (Dai and Shao, 2025) uses class K as the baseline.
+The two are equivalent under relabeling: the code's class 1 corresponds
+to the paper's class K, and vice versa.
+\code{groups[[1]]} is the reference group.
 }
 

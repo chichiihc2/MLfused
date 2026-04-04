@@ -41,7 +41,10 @@ sandwich_se <- function(par, X, y, qhat, Hmat, A,
   Ihat[ix$idx_t,     ix$idx_t]     <- -Jhat[ix$idx_t,     ix$idx_t]
 
   conf_matrix <- Jinv %*% Ihat %*% Jinv / n
-  se <- sqrt(pmax(diag(conf_matrix), 0))
+  dvar <- diag(conf_matrix)
+  if (any(dvar < 0))
+    warning("Negative variance estimates detected; sandwich covariance may be unreliable.")
+  se <- sqrt(pmax(dvar, 0))
   attributes(se) <- attributes(par)
 
   list(Ihat = Ihat, Jhat = Jhat, conf_matrix = conf_matrix, se = se)
