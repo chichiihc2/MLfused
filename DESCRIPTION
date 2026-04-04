@@ -1,7 +1,10 @@
 Package: MLfused
 Title: Multinomial Logistic Regression with Empirical-Likelihood Data Fusion
 Version: 0.2.0
-Authors@R: person("Chi-Shian", "Dai", email = "47463697+chichiihc@users.noreply.github.com", role = c("aut", "cre"))
+Authors@R: c(
+    person("Chi-Shian", "Dai", email = "47463697+chichiihc@users.noreply.github.com", role = c("aut", "cre")),
+    person("Jun", "Shao", email = "shao@stat.wisc.edu", role = "aut")
+    )
 Description: Fits multinomial logistic regression models that incorporate
     external machine-learning predictions via empirical-likelihood (EL)
     moment constraints, as proposed by Dai and Shao (2025). Implements
