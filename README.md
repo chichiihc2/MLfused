@@ -16,7 +16,11 @@ The framework handles common data-quality issues in external sources:
 ## Installation
 
 ```r
+# Without vignettes (faster)
 devtools::install_github("chichiihc2/MLfused")
+
+# With vignettes (needed for vignette() to work)
+devtools::install_github("chichiihc2/MLfused", build_vignettes = TRUE)
 ```
 
 ## Quick Example
