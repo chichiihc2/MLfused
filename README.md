@@ -1,87 +1,117 @@
 # MLfused
 
-Multinomial Logistic Regression with Empirical-Likelihood Data Fusion
+Fused Multinomial Logistic Regression Utilizing Summary-Level External Machine-Learning Information
 
-MLfused fits multinomial logistic regression models that incorporate external
-machine learning predictions via empirical-likelihood constraints,
-improving estimation efficiency when auxiliary data is available.
+## Overview
+
+MLfused implements the fused maximum likelihood estimator (FMLE) proposed by Dai and Shao (2025). The method incorporates external nonparametric machine-learning predictions (e.g., XGBoost, random forests, neural networks) into multinomial logistic regression via empirical-likelihood moment constraints, improving estimation efficiency without requiring individual-level external data.
+
+The framework handles common data-quality issues in external sources:
+
+- **Coarsened outcome labels** -- the external source may record only grouped categories (e.g., binary) while the primary study has fine-grained K-class labels.
+- **Partially observed covariates** -- the external source may observe only a subset of the primary covariates.
+- **Covariate shift** -- the covariate distributions may differ across sources; robustness is achieved through nonparametric ML predictions without density-ratio estimation.
+- **Concept shift** -- outcome-generating mechanisms may differ across sources, accommodated by separating shared and source-specific (free) parameters.
 
 ## Installation
 
 ```r
-# Install from GitHub
-devtools::install_github("username/MLfused")
+devtools::install_github("chichiihc2/MLfused")
 ```
 
-## Quick example
+## Quick Example
 
 ```r
 library(MLfused)
-set.seed(1)
+library(xgboost)
 
-# Synthetic data: n=500, p=3 covariates, K=3 classes
-n <- 500; p <- 3; K <- 3
-X <- matrix(rnorm(n * p), n, p)
-eta <- cbind(0, X %*% matrix(c(1,-1,0.5,-0.5,0.3,0.3), p, K-1))
-P <- exp(eta) / rowSums(exp(eta))
-y <- apply(P, 1, function(pr) sample(K, 1, prob = pr))
+set.seed(43)
 
-# External predictions: groups = {class 1} vs {classes 2,3}
-groups <- list(c(1), c(2, 3))
-qhat   <- matrix(pmin(pmax(P[,2] + P[,3] + rnorm(n, 0, 0.05), 0.01), 0.99))
-qhat_se <- matrix(0.05, n, 1)
+# True parameters (Example 2: proportion heterogeneity)
+p <- 4; K <- 3; n1 <- 500; n2 <- 10000
+Theta_true <- matrix(c(1,-1,-1,1, 1,1,-1,1), nrow = p, ncol = K-1, byrow = TRUE)
+beta_true  <- c(0.2, -0.1)    # primary intercepts
+alpha_true <- c(0.35, -0.25)  # external intercepts
+groups <- list(c(1,2), c(3))  # coarsened: {class 1,2} vs {class 3}
 
-# Build constraint basis and initial parameters
-Hmat <- build_Hmat_interleaved(build_H(X, phi_idx = 1:2, n.q = 0), Lm1 = 1)
-par0 <- pack.hard(rep(0, K-1), matrix(0, p, K-1), rep(0, K-1),
-                  matrix(0, 1, ncol(Hmat)))
+Sigma <- matrix(0.8, p, p); diag(Sigma) <- 1
 
-# Fit fused model
-fit <- ML_fused_fast(par0, X, y, qhat, qhat_se, Hmat, groups,
-                     lambda = 5000, compute_se = TRUE, tau_tmat = 0.01)
-fit$par$beta      # intercept estimates
-fit$par$Theta     # slope matrix (p x (K-1))
-fit$se.score.adj  # score-based adjusted standard errors
+# External data and XGBoost
+X2 <- MASS::mvrnorm(n2, rep(0, p), Sigma)
+eta2 <- X2 %*% Theta_true + matrix(alpha_true, n2, K-1, byrow = TRUE)
+G2 <- apply(softmax_first(eta2), 1, function(pp) sample.int(K, 1, prob = pp))
+W2 <- ifelse(G2 %in% c(1,2), 1L, 2L)
+
+xgb_fit <- xgb.train(
+  params = list(objective = "binary:logistic", max_depth = 4,
+                eta = 0.1, subsample = 0.5, nthread = 1),
+  data = xgb.DMatrix(X2, label = as.numeric(W2 == 1)),
+  nrounds = 300, verbose = 0
+)
+
+# Primary data
+X1 <- MASS::mvrnorm(n1, rep(0, p), Sigma)
+eta1 <- X1 %*% Theta_true + matrix(beta_true, n1, K-1, byrow = TRUE)
+y <- apply(softmax_first(eta1), 1, function(pp) sample.int(K, 1, prob = pp))
+
+# qhat = P(Group 2 | X)
+qhat <- matrix(1 - predict(xgb_fit, xgb.DMatrix(X1)), ncol = 1)
+
+# MLE (primary data only)
+fit_mle <- nnet::multinom(y ~ ., data = data.frame(y = factor(y), X1), trace = FALSE)
+
+# FMLE (fused with external ML)
+cf <- coef(fit_mle); if (is.vector(cf)) cf <- matrix(cf, nrow = 1)
+beta0 <- cf[, 1]; Theta0 <- t(cf[, -1])
+Hmat <- build_H(X1, phi_idx = 1:p, n.q = 1)
+par0 <- pack_hard(beta0, Theta0, rep(0, K-1),
+                  matrix(0, ncol(qhat), ncol(Hmat)))
+
+fit <- ml_fused(par0, X1, y, qhat, Hmat, groups, tau_tmat = 0.1)
+
+fit$par$beta   # intercept estimates
+fit$par$Theta  # slope matrix (p x (K-1))
+fit$se$Theta   # sandwich standard errors
 ```
 
-## Features
+## Main Functions
 
-- **Newton optimizer** with analytic gradient and Hessian for the
-  empirical-likelihood fused multinomial objective.
-- **Fast solver** (`ML_fused_fast`) with vectorized per-observation Hessian
-  computation and combined gradient-Hessian passes.
-- **Multiple SE estimators**: Hessian-based sandwich, score-based sandwich,
-  Theorem 3, and bootstrap -- each with optional qhat-uncertainty adjustment.
-- **Flexible constraint basis**: intercept + raw covariates or natural cubic
-  splines via `build_H()`.
-- Supports **coarsened external labels** (binary grouping of K classes) and
-  **full external labels** (one-to-one class mapping).
+| Function | Description |
+|----------|-------------|
+| `ml_fused()` | Fit the fused multinomial model via Newton optimization |
+| `pack_hard()` / `unpack_hard()` | Pack/unpack parameter blocks (beta, Theta, alpha, tmat) |
+| `build_H()` | Construct constraint basis (raw covariates or natural splines) |
+| `build_Hmat_interleaved()` | Interleave basis for multiple non-reference groups |
+| `sandwich_se()` | Hessian-based sandwich standard errors (Theorem 2) |
+| `bootstrap_se()` | Bootstrap standard errors with SD and MAD variants |
+| `objective_hard()` | Profile log-pseudo-likelihood value |
+| `gradient_hard()` / `hessian_hard()` | Analytic gradient and Hessian |
 
-## Vignettes
+## Method
 
-- `vignette("getting-started", package = "MLfused")` -- Synthetic data
-  walkthrough: generate data, fit the model, compare with `nnet::multinom()`.
-- `vignette("nhanes-application", package = "MLfused")` -- Real-data
-  application: NHANES blood pressure classification with coarsened and full
-  external predictions.
+Given primary data `(Y_i, X_i)` from a multinomial logistic model and a black-box external prediction `q_hat(Z)` trained on a large auxiliary sample, the FMLE maximizes the profile log-pseudo-likelihood (Dai and Shao, 2025, eq. 7):
 
-## Reproducing the paper
+```
+l_n(gamma | q_hat) = l_n(theta) - (1/n) sum_i log(1 + sum_{l,h} g_{l,h}(X_i) * lambda_{l,h})
+```
 
-The `inst/scripts/` directory contains the analysis pipeline scripts. The
-processed NHANES datasets used in the paper are bundled in `inst/extdata/`:
+where `l_n(theta)` is the primary multinomial log-likelihood, and the second term encodes empirical-likelihood constraints linking the primary model to external predictions through a basis function set H.
 
-- `internal_pred_coarsened.csv` -- primary data with coarsened (binary)
-  external predictions
-- `internal_pred_full.csv` -- primary data with full (3-class) external
-  predictions
-- `internal_cleaned.csv` -- primary data without external predictions
+An L2 penalty `tau * ||lambda||^2` regularizes the Lagrange multipliers for numerical stability.
+
+## Vignette
+
+```r
+vignette("getting-started", package = "MLfused")
+```
+
+Reproduces the paper's simulation design: K=3 classes, L=2 groups (coarsened external labels), XGBoost external predictor, comparing MLE and FMLE with a coefficient plot.
 
 ## Citation
 
 If you use this package, please cite:
 
-> [Author names]. "Data Fusion for Multinomial Logistic Regression via
-> Empirical Likelihood." *[Journal]*, [Year].
+> Dai, C.-S. and Shao, J. (2025). "Fused Multinomial Logistic Regression Utilizing Summary-Level External Machine-Learning Information." Submitted to *Journal of Machine Learning Research*.
 
 ## License
 
